@@ -9,7 +9,7 @@ st.set_page_config(page_title="Trading Calculator", page_icon="📊", layout="wi
 FEE_PERCENTAGE = 1.12
 
 # Create tabs
-tab1, tab2, tab3 = st.tabs(["💹 Single Trade Calculator", "⚖️ Break-Even Calculator", "🔄 Intraday Multi-Trade Calculator"])
+tab1, tab2, tab3 = st.tabs(["💹 Single Trade Calculator", "⚖️ Break-Even Calculator", "🔄 Intraday Multi-Trade Calculator (beta)"])
 
 # ==================== TAB 1: Original Calculator ====================
 with tab1:
