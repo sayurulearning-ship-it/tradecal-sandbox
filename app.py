@@ -302,7 +302,7 @@ with tab2:
     st.markdown("### 🎯 Profit Target Scenarios")
     st.markdown("Calculate sell prices for different profit targets:")
     
-    profit_targets = [0.5, 1.0, 2.0, 3.0, 5.0, 10.0]
+    profit_targets = [0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
     
     target_data = []
     
