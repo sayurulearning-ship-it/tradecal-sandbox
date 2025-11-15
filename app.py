@@ -52,11 +52,19 @@ with tab1:
     # Total Cost = Avg Price × Quantity
     total_cost = avg_price * quantity
     
+    # STL Rate (Share Transaction Levy)
+    STL_RATE = 0.30 / 100
+    
     # Step 2: Calculate B.E.S Price (Break-Even Sell Price)
     if same_day == "Same Day Trading":
-        # For same day: No additional fee, break even at avg price
-        bes_price = avg_price
-        sell_fee = 0
+        # For same day: Only STL (0.30%) on sell, no other transaction fees
+        # B.E.S Price needs to cover: Total Cost + STL on sell
+        # Total Cost = (B.E.S Price × Qty) - (B.E.S Price × Qty × 0.003)
+        # Total Cost = B.E.S Price × Qty × (1 - 0.003)
+        # B.E.S Price = Total Cost / (Qty × (1 - 0.003))
+        bes_price = total_cost / (quantity * (1 - STL_RATE))
+        # Calculate actual sell fee (only STL) based on sell price
+        sell_fee = sell_price * quantity * STL_RATE if sell_price > 0 else 0
     else:
         # For another day: B.E.S = Avg Price × 1.0112
         bes_price = avg_price * (1 + FEE_PERCENTAGE / 100)
@@ -65,12 +73,8 @@ with tab1:
     
     # Step 3: Calculate proceeds from selling
     total_sell_value = sell_price * quantity
-    if same_day == "Same Day Trading":
-        proceeds = total_sell_value
-        fee_count = "1x (buy only)"
-    else:
-        proceeds = total_sell_value - sell_fee
-        fee_count = "2x (buy + sell)"
+    proceeds = total_sell_value - sell_fee
+    fee_count = "Buy: 1.12%, Sell: 0.30% (STL only)" if same_day == "Same Day Trading" else "2x (buy 1.12% + sell 1.12%)"
 
     # Calculate gain/loss
     gain_loss = proceeds - total_cost
@@ -118,7 +122,7 @@ with tab1:
         st.metric("Sell Price", f"Rs. {sell_price:.2f}")
     with col3:
         if same_day == "Same Day Trading":
-            st.metric("Sell Fee", "Rs. 0.00", help="No sell fee on same day")
+            st.metric("Sell Fee (STL 0.30%)", f"Rs. {sell_fee:.2f}", help="Only STL charged on same day sell")
         else:
             st.metric("Sell Fee (1.12%)", f"Rs. {sell_fee:.2f}")
     with col4:
@@ -151,9 +155,9 @@ with tab1:
     
     st.info(f"""
     **Fee Structure:**
-    - Transaction Fee: **{FEE_PERCENTAGE}%**
-    - Same Day Trading: Fee charged **once** (on buy only)
-    - Sell on Another Day: Fee charged **twice** (on buy and sell)
+    - Transaction Fee: **{FEE_PERCENTAGE}%** (includes 0.82% brokerage + 0.30% STL)
+    - Same Day Trading: Buy fee **1.12%**, Sell fee **0.30% (STL only)**
+    - Sell on Another Day: Fee charged **twice** (1.12% on buy and 1.12% on sell)
     """)
 
     with st.expander("📋 Detailed Breakdown"):
@@ -173,14 +177,14 @@ with tab1:
         **Break-Even Analysis:**
         - Avg Price: Rs. {avg_price:.4f}
         - B.E.S Price: Rs. {bes_price:.4f}
-        {f"- Same as Avg Price (no sell fee for same day)" if same_day == 'Same Day Trading' else f"- B.E.S = Avg Price × 1.0112 = Rs. {avg_price:.4f} × 1.0112"}
+        {f"- B.E.S = Total Cost ÷ (Qty × 0.997) - includes 0.30% STL on sell" if same_day == 'Same Day Trading' else f"- B.E.S = Avg Price × 1.0112 = Rs. {avg_price:.4f} × 1.0112"}
         - Price Move Needed: Rs. {price_move_needed:.4f} ({((price_move_needed / buy_price) * 100):.2f}% from buy price)
         
         **Sell Transaction:**
         - Sell Price: Rs. {sell_price:.2f}
         - Quantity: {quantity} stocks
         - Total Sell Value: Rs. {total_sell_value:.2f}
-        - Sell Fee: Rs. {sell_fee:.2f} {'(No fee - same day)' if same_day == 'Same Day Trading' else f'({FEE_PERCENTAGE}% of sell value)'}
+        - Sell Fee: Rs. {sell_fee:.2f} {'(STL 0.30% only - same day)' if same_day == 'Same Day Trading' else f'({FEE_PERCENTAGE}% - full fee)'}
         - **Proceeds: Rs. {proceeds:.2f}**
         
         **Summary:**
@@ -727,38 +731,58 @@ with tab3:
         
         # Example comparison
         with st.expander("💡 Fee Comparison: Intraday vs Multi-Day"):
-            # Calculate what fees would be if this was multi-day
+            # Calculate what fees would be for both scenarios
             full_buy_fees = total_buy_value * (FEE_PERCENTAGE / 100)
             full_sell_fees = total_sell_value * (FEE_PERCENTAGE / 100)
             multiday_total_fees = full_buy_fees + full_sell_fees
-            savings = multiday_total_fees - total_fees
             
-            st.markdown(f"""
-            **If these were Multi-Day trades (no exemption):**
-            - Buy fees: Rs. {total_buy_value:.2f} × 1.12% = Rs. {full_buy_fees:.2f}
-            - Sell fees: Rs. {total_sell_value:.2f} × 1.12% = Rs. {full_sell_fees:.2f}
-            - Total fees: Rs. {multiday_total_fees:.2f}
-            
-            **Your Intraday fees:**
-            - Total fees: Rs. {total_fees:.2f}
-            
-            **💰 You saved: Rs. {savings:.2f}** by doing intraday trading!
-            """)
+            if trading_mode == "Intraday Trading (Same Day)":
+                savings = multiday_total_fees - total_fees
+                st.markdown(f"""
+                **If these were Multi-Day trades (no exemption):**
+                - Buy fees: Rs. {total_buy_value:.2f} × 1.12% = Rs. {full_buy_fees:.2f}
+                - Sell fees: Rs. {total_sell_value:.2f} × 1.12% = Rs. {full_sell_fees:.2f}
+                - Total fees: Rs. {multiday_total_fees:.2f}
+                
+                **Your Intraday fees:**
+                - Total fees: Rs. {total_fees:.2f}
+                
+                **💰 You saved: Rs. {savings:.2f}** by doing intraday trading!
+                """)
+            else:
+                st.markdown(f"""
+                **Your Multi-Day fees:**
+                - Buy fees: Rs. {full_buy_fees:.2f}
+                - Sell fees: Rs. {full_sell_fees:.2f}
+                - Total fees: Rs. {multiday_total_fees:.2f}
+                
+                **If these were Intraday trades (with {matched_qty} matched shares):**
+                - Estimated savings: Rs. {fee_saved if fee_saved > 0 else (matched_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE + matched_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE):.2f}
+                
+                💡 **Tip:** If you can complete these trades in a single day, you could save on transaction fees!
+                """)
     
     else:
         st.info("👆 Add buy and sell trades to see the analysis")
         
         st.markdown("""
         **How to use this calculator:**
-        1. Add all your BUY trades for the day (quantity and price for each)
-        2. Add all your SELL trades for the day (quantity and price for each)
-        3. The calculator will:
-           - Match buy and sell quantities
-           - Apply CSE intraday fee exemption on matched shares
-           - Calculate fees only on unmatched quantities (except STL)
+        1. **Select trading mode**: Intraday (same day) or Multi-Day (different days)
+        2. Add all your BUY trades (quantity and price for each)
+        3. Add all your SELL trades (quantity and price for each)
+        4. The calculator will:
+           - Calculate weighted average prices
+           - Match buy and sell quantities (for intraday mode)
+           - Apply appropriate CSE fee rules
            - Show your total P&L with fee breakdown
         
-        **Example scenarios:**
-        - **Client X**: Bought 5,000 shares, Sold 4,000 shares → Fee exemption on 4,000 shares
-        - **Client Y**: Bought 900 shares, Sold 1,500 shares → Fee exemption on 900 shares
+        **Intraday Mode:**
+        - Fee exemption (0.82%) on matched quantities
+        - STL (0.30%) still applies to all shares
+        - **Example**: Buy 5,000, Sell 4,000 → Fee exemption on 4,000 shares
+        
+        **Multi-Day Mode:**
+        - Full 1.12% fee on ALL buy and sell transactions
+        - No exemptions apply
+        - Use this when holding stocks overnight or longer
         """)
