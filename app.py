@@ -429,14 +429,28 @@ with tab2:
 
 # ==================== TAB 3: Intraday Multi-Trade Calculator ====================
 with tab3:
-    st.title("🔄 Intraday Multi-Trade Calculator")
-    st.markdown("Calculate fees for multiple buy/sell trades on the same day (CSE Rules)")
+    st.title("🔄 Multi-Trade Calculator")
+    st.markdown("Calculate fees for multiple trades - both intraday and multi-day (CSE Rules)")
     
-    st.info("""
-    **CSE Intraday Trading Rule:**
-    When you buy and sell the same stock on the same day, transaction fees are waived on the **matched quantity** 
-    (except Share Transaction Levy - STL 0.30%). Fees are only charged on the **unmatched quantity**.
-    """)
+    # Trading type selection
+    trading_mode = st.radio(
+        "Select Trading Mode:",
+        options=["Intraday Trading (Same Day)", "Multi-Day Trading (Different Days)"],
+        help="Intraday: Fee exemption on matched quantities. Multi-Day: Full fees on all trades."
+    )
+    
+    if trading_mode == "Intraday Trading (Same Day)":
+        st.info("""
+        **CSE Intraday Trading Rule:**
+        When you buy and sell the same stock on the same day, transaction fees are waived on the **matched quantity** 
+        (except Share Transaction Levy - STL 0.30%). Fees are only charged on the **unmatched quantity**.
+        """)
+    else:
+        st.info("""
+        **Multi-Day Trading:**
+        When you sell stocks on a different day than purchase, full transaction fees (1.12%) apply to **all** 
+        buy and sell transactions.
+        """)
     
     # Initialize session state for trades
     if 'buy_trades' not in st.session_state:
@@ -563,20 +577,38 @@ with tab3:
         STL_RATE = 0.30 / 100
         TRANSACTION_FEE_RATE = (FEE_PERCENTAGE - 0.30) / 100  # 0.82% (1.12% - 0.30% STL)
         
-        # Buy side fees
-        # Full fee on unmatched buys, only STL on matched buys
-        buy_transaction_fee_unmatched = unmatched_buy_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE
-        buy_stl_all = total_buy_qty * weighted_avg_buy_price * STL_RATE  # STL on all buys
-        total_buy_fees = buy_transaction_fee_unmatched + buy_stl_all
-        
-        # Sell side fees
-        # Full fee on unmatched sells, only STL on matched sells
-        sell_transaction_fee_unmatched = unmatched_sell_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE
-        sell_stl_all = total_sell_qty * weighted_avg_sell_price * STL_RATE  # STL on all sells
-        total_sell_fees = sell_transaction_fee_unmatched + sell_stl_all
-        
-        # Total fees
-        total_fees = total_buy_fees + total_sell_fees
+        if trading_mode == "Intraday Trading (Same Day)":
+            # INTRADAY MODE: Fee exemption on matched quantity
+            # Buy side fees
+            # Full fee on unmatched buys, only STL on matched buys
+            buy_transaction_fee_unmatched = unmatched_buy_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE
+            buy_stl_all = total_buy_qty * weighted_avg_buy_price * STL_RATE  # STL on all buys
+            total_buy_fees = buy_transaction_fee_unmatched + buy_stl_all
+            
+            # Sell side fees
+            # Full fee on unmatched sells, only STL on matched sells
+            sell_transaction_fee_unmatched = unmatched_sell_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE
+            sell_stl_all = total_sell_qty * weighted_avg_sell_price * STL_RATE  # STL on all sells
+            total_sell_fees = sell_transaction_fee_unmatched + sell_stl_all
+            
+            # Total fees
+            total_fees = total_buy_fees + total_sell_fees
+            
+            # Fee saved calculation
+            fee_saved = (matched_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE) + \
+                       (matched_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE)
+        else:
+            # MULTI-DAY MODE: Full fees on all transactions
+            # Buy side fees - full 1.12% on all buys
+            total_buy_fees = total_buy_value * (FEE_PERCENTAGE / 100)
+            
+            # Sell side fees - full 1.12% on all sells
+            total_sell_fees = total_sell_value * (FEE_PERCENTAGE / 100)
+            
+            # Total fees
+            total_fees = total_buy_fees + total_sell_fees
+            
+            fee_saved = 0  # No savings in multi-day
         
         # Calculate costs
         total_cost_with_fees = total_buy_value + total_buy_fees
@@ -590,20 +622,22 @@ with tab3:
         
         with col1:
             st.metric("Buy Fees", f"Rs. {total_buy_fees:.2f}",
-                     help=f"Transaction fee on {unmatched_buy_qty} unmatched + STL on all {total_buy_qty}")
+                     help=f"{'Transaction fee on ' + str(unmatched_buy_qty) + ' unmatched + STL on all ' + str(total_buy_qty) if trading_mode == 'Intraday Trading (Same Day)' else 'Full 1.12% fee on all ' + str(total_buy_qty) + ' shares'}")
         
         with col2:
             st.metric("Sell Fees", f"Rs. {total_sell_fees:.2f}",
-                     help=f"Transaction fee on {unmatched_sell_qty} unmatched + STL on all {total_sell_qty}")
+                     help=f"{'Transaction fee on ' + str(unmatched_sell_qty) + ' unmatched + STL on all ' + str(total_sell_qty) if trading_mode == 'Intraday Trading (Same Day)' else 'Full 1.12% fee on all ' + str(total_sell_qty) + ' shares'}")
         
         with col3:
             st.metric("Total Fees", f"Rs. {total_fees:.2f}")
         
         with col4:
-            fee_saved = (matched_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE) + \
-                       (matched_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE)
-            st.metric("Fees Saved (Intraday)", f"Rs. {fee_saved:.2f}",
-                     help="Transaction fees waived on matched quantity")
+            if trading_mode == "Intraday Trading (Same Day)":
+                st.metric("Fees Saved (Intraday)", f"Rs. {fee_saved:.2f}",
+                         help="Transaction fees waived on matched quantity")
+            else:
+                st.metric("Trading Mode", "Multi-Day",
+                         help="Full fees applied on all transactions")
         
         st.divider()
         
@@ -631,39 +665,65 @@ with tab3:
         
         # Detailed breakdown
         with st.expander("🔍 Detailed Fee Calculation"):
-            st.markdown(f"""
-            **CSE Intraday Fee Structure:**
-            - **Transaction Fee (excluding STL)**: 0.82% (Brokerage + SEC + CSE + CDS)
-            - **Share Transaction Levy (STL)**: 0.30%
-            - **Total Normal Fee**: 1.12%
-            
-            **Your Trades:**
-            - Total Buys: {total_buy_qty} shares @ avg Rs. {weighted_avg_buy_price:.2f}
-            - Total Sells: {total_sell_qty} shares @ avg Rs. {weighted_avg_sell_price:.2f}
-            - **Matched Quantity**: {matched_qty} shares (intraday exemption applies)
-            
-            **Buy Side Fee Calculation:**
-            - Unmatched quantity: {unmatched_buy_qty} shares
-            - Transaction fee on unmatched: Rs. {unmatched_buy_qty * weighted_avg_buy_price:.2f} × 0.82% = Rs. {buy_transaction_fee_unmatched:.2f}
-            - STL on ALL buys: Rs. {total_buy_value:.2f} × 0.30% = Rs. {buy_stl_all:.2f}
-            - **Total Buy Fees: Rs. {total_buy_fees:.2f}**
-            
-            **Sell Side Fee Calculation:**
-            - Unmatched quantity: {unmatched_sell_qty} shares
-            - Transaction fee on unmatched: Rs. {unmatched_sell_qty * weighted_avg_sell_price:.2f} × 0.82% = Rs. {sell_transaction_fee_unmatched:.2f}
-            - STL on ALL sells: Rs. {total_sell_value:.2f} × 0.30% = Rs. {sell_stl_all:.2f}
-            - **Total Sell Fees: Rs. {total_sell_fees:.2f}**
-            
-            **Matched Quantity Benefit:**
-            - On {matched_qty} matched shares, you save the 0.82% transaction fee
-            - You still pay STL (0.30%) on matched shares
-            - Total fee saved: Rs. {fee_saved:.2f}
-            
-            **Final P&L:**
-            - Total Cost: Rs. {total_buy_value:.2f} + Rs. {total_buy_fees:.2f} = Rs. {total_cost_with_fees:.2f}
-            - Proceeds: Rs. {total_sell_value:.2f} - Rs. {total_sell_fees:.2f} = Rs. {proceeds_after_fees:.2f}
-            - **Net P&L: Rs. {net_pl:.2f} ({net_pl_pct:.2f}%)**
-            """)
+            if trading_mode == "Intraday Trading (Same Day)":
+                st.markdown(f"""
+                **CSE Intraday Fee Structure:**
+                - **Transaction Fee (excluding STL)**: 0.82% (Brokerage + SEC + CSE + CDS)
+                - **Share Transaction Levy (STL)**: 0.30%
+                - **Total Normal Fee**: 1.12%
+                
+                **Your Trades:**
+                - Total Buys: {total_buy_qty} shares @ avg Rs. {weighted_avg_buy_price:.2f}
+                - Total Sells: {total_sell_qty} shares @ avg Rs. {weighted_avg_sell_price:.2f}
+                - **Matched Quantity**: {matched_qty} shares (intraday exemption applies)
+                
+                **Buy Side Fee Calculation:**
+                - Unmatched quantity: {unmatched_buy_qty} shares
+                - Transaction fee on unmatched: Rs. {unmatched_buy_qty * weighted_avg_buy_price:.2f} × 0.82% = Rs. {buy_transaction_fee_unmatched:.2f}
+                - STL on ALL buys: Rs. {total_buy_value:.2f} × 0.30% = Rs. {buy_stl_all:.2f}
+                - **Total Buy Fees: Rs. {total_buy_fees:.2f}**
+                
+                **Sell Side Fee Calculation:**
+                - Unmatched quantity: {unmatched_sell_qty} shares
+                - Transaction fee on unmatched: Rs. {unmatched_sell_qty * weighted_avg_sell_price:.2f} × 0.82% = Rs. {sell_transaction_fee_unmatched:.2f}
+                - STL on ALL sells: Rs. {total_sell_value:.2f} × 0.30% = Rs. {sell_stl_all:.2f}
+                - **Total Sell Fees: Rs. {total_sell_fees:.2f}**
+                
+                **Matched Quantity Benefit:**
+                - On {matched_qty} matched shares, you save the 0.82% transaction fee
+                - You still pay STL (0.30%) on matched shares
+                - Total fee saved: Rs. {fee_saved:.2f}
+                
+                **Final P&L:**
+                - Total Cost: Rs. {total_buy_value:.2f} + Rs. {total_buy_fees:.2f} = Rs. {total_cost_with_fees:.2f}
+                - Proceeds: Rs. {total_sell_value:.2f} - Rs. {total_sell_fees:.2f} = Rs. {proceeds_after_fees:.2f}
+                - **Net P&L: Rs. {net_pl:.2f} ({net_pl_pct:.2f}%)**
+                """)
+            else:
+                st.markdown(f"""
+                **Multi-Day Fee Structure:**
+                - **Full Transaction Fee**: 1.12% on ALL transactions
+                - No intraday exemption applies
+                
+                **Your Trades:**
+                - Total Buys: {total_buy_qty} shares @ avg Rs. {weighted_avg_buy_price:.2f}
+                - Total Sells: {total_sell_qty} shares @ avg Rs. {weighted_avg_sell_price:.2f}
+                
+                **Buy Side Fee Calculation:**
+                - All buy quantity: {total_buy_qty} shares
+                - Full fee on all buys: Rs. {total_buy_value:.2f} × 1.12% = Rs. {total_buy_fees:.2f}
+                - **Total Buy Fees: Rs. {total_buy_fees:.2f}**
+                
+                **Sell Side Fee Calculation:**
+                - All sell quantity: {total_sell_qty} shares
+                - Full fee on all sells: Rs. {total_sell_value:.2f} × 1.12% = Rs. {total_sell_fees:.2f}
+                - **Total Sell Fees: Rs. {total_sell_fees:.2f}**
+                
+                **Final P&L:**
+                - Total Cost: Rs. {total_buy_value:.2f} + Rs. {total_buy_fees:.2f} = Rs. {total_cost_with_fees:.2f}
+                - Proceeds: Rs. {total_sell_value:.2f} - Rs. {total_sell_fees:.2f} = Rs. {proceeds_after_fees:.2f}
+                - **Net P&L: Rs. {net_pl:.2f} ({net_pl_pct:.2f}%)**
+                """)
         
         # Example comparison
         with st.expander("💡 Fee Comparison: Intraday vs Multi-Day"):
