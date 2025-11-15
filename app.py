@@ -227,10 +227,14 @@ with tab2:
     be_total_cost = be_avg_price * be_quantity
     
     # Step 2: Calculate B.E.S Price
+    # STL Rate (Share Transaction Levy)
+    STL_RATE = 0.30 / 100
+    
     if be_same_day == "Same Day Trading":
-        # For same day: Break even at avg price (no sell fee)
-        be_bes_price = be_avg_price
-        be_sell_fee = 0
+        # For same day: Only STL (0.30%) on sell
+        # B.E.S Price = Total Cost / (Qty × (1 - 0.003))
+        be_bes_price = be_total_cost / (be_quantity * (1 - STL_RATE))
+        be_sell_fee = be_bes_price * be_quantity * STL_RATE
         be_price_increase_from_buy = be_bes_price - be_buy_price
         be_percentage_move_from_buy = (be_price_increase_from_buy / be_buy_price) * 100
     else:
@@ -286,7 +290,8 @@ with tab2:
     
     with col4:
         if be_same_day == "Same Day Trading":
-            st.metric("Sell Fee", "Rs. 0.00", help="No sell fee for same day")
+            st.metric("Sell Fee (STL)", f"Rs. {be_sell_fee:.2f}", 
+                     help="STL 0.30% on same day sell")
         else:
             st.metric("Sell Fee at B.E.S", f"Rs. {be_sell_fee:.2f}",
                      help=f"Sell fee when selling at B.E.S price")
@@ -388,11 +393,14 @@ with tab2:
     
     **B.E.S Price: Rs. {be_bes_price:.4f}**
     - Minimum price to break even
-    {f"- Same as Avg Price (no sell fee for same day)" if be_same_day == 'Same Day Trading' else f"- Avg Price × 1.0112 = Rs. {be_avg_price:.4f} × 1.0112"}
+    {f"- Formula: Total Cost ÷ (Qty × 0.997) - includes 0.30% STL on sell" if be_same_day == 'Same Day Trading' else f"- Avg Price × 1.0112 = Rs. {be_avg_price:.4f} × 1.0112"}
     - Needs **{be_percentage_move_from_buy:.2f}%** increase from buy price
     
     **Total Cost: Rs. {be_total_cost:.2f}**
     - This is what you need to recover to break even
+    
+    **Fee Structure:**
+    {f"- Same Day: Buy 1.12%, Sell 0.30% (STL only)" if be_same_day == 'Same Day Trading' else f"- Multi-Day: Buy 1.12%, Sell 1.12% (full fees)"}
     """)
     
     # Detailed calculation
@@ -414,8 +422,8 @@ with tab2:
         - **Total Cost = Rs. {be_total_cost:.2f}**
         
         **Step 3: Calculate B.E.S Price**
-        {'- For Same Day: B.E.S Price = Avg Price' if be_same_day == 'Same Day Trading' else f'- For Another Day: B.E.S Price = Avg Price × 1.0112'}
-        {'- No sell fee for same day' if be_same_day == 'Same Day Trading' else f'- B.E.S Price = Rs. {be_avg_price:.4f} × 1.0112'}
+        {'- For Same Day: B.E.S Price = Total Cost ÷ (Qty × 0.997)' if be_same_day == 'Same Day Trading' else f'- For Another Day: B.E.S Price = Avg Price × 1.0112'}
+        {'- Accounts for 0.30% STL on sell' if be_same_day == 'Same Day Trading' else f'- B.E.S Price = Rs. {be_avg_price:.4f} × 1.0112'}
         - **B.E.S Price = Rs. {be_bes_price:.4f}**
         
         **Step 4: Price Movement Analysis**
@@ -426,8 +434,7 @@ with tab2:
         ```
         Avg Price = (Buy Price × Qty + Buy Fee) ÷ Qty
         Total Cost = Avg Price × Qty
-        B.E.S Price = Avg Price × 1.0112 (for another day)
-        B.E.S Price = Avg Price (for same day)
+        {'B.E.S Price = Total Cost ÷ (Qty × 0.997) [same day - includes STL]' if be_same_day == 'Same Day Trading' else 'B.E.S Price = Avg Price × 1.0112 [another day - full fees]'}
         ```
         """)
 
