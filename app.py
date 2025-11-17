@@ -3,19 +3,19 @@ import pandas as pd
 from datetime import datetime
 
 # Page configuration
-st.set_page_config(page_title="Trading Calculator", page_icon="📊", layout="wide")
+st.set_page_config(page_title="CalqTrade", page_icon="🪙", layout="wide")
 
 # Fee percentage
 FEE_PERCENTAGE = 1.12
 
 # Create tabs
-tab1, tab2, tab3 = st.tabs(["💹 Single Trade Calculator", "⚖️ Break-Even Calculator", "🔄 Intraday Multi-Trade Calculator (beta)"])
+tab1, tab2 = st.tabs(["💹 Single Trade Calculator", "⚖️ Break-Even Calculator"])
 
 # ==================== TAB 1: Original Calculator ====================
 with tab1:
     # Title and description
-    st.title("📊 Trading Calculator")
-    st.markdown("Calculate your trading profits with transaction fees")
+    st.title("🪙 CalqTrade")
+    st.markdown("Calculate trading profits with transaction fees")
 
     # Input section
     st.subheader("Trade Details")
@@ -142,7 +142,7 @@ with tab1:
 
     with col2:
         if gain_loss_percentage >= 0:
-            st.metric("Return %", f"{gain_loss_percentage:.2f}%", delta=f"+{gain_loss_percentage:.2f}%")
+            st.metric("Return %", f"{gain_loss_percentage:.2f}%", delta=f"+{gain_loss_percentage:.2f}%", delta_color="normal")
         else:
             st.metric("Return %", f"{gain_loss_percentage:.2f}%", delta=f"{gain_loss_percentage:.2f}%", delta_color="inverse")
 
@@ -197,10 +197,10 @@ with tab1:
 
 # ==================== TAB 2: Break-Even Calculator ====================
 with tab2:
-    st.title("⚖️ Break-Even Calculator")
-    st.markdown("Calculate B.E.S Price (Break-Even Sell Price) from your buy price")
+    st.title("🪙 CalqTrade")
+    st.markdown("Calculate B.E.S Price (Break-Even Sell Price) from buy price")
     
-    st.subheader("📊 Input Details")
+    st.subheader("Input Details")
     
     col1, col2 = st.columns(2)
     
@@ -436,360 +436,4 @@ with tab2:
         Total Cost = Avg Price × Qty
         {'B.E.S Price = Total Cost ÷ (Qty × 0.997) [same day - includes STL]' if be_same_day == 'Same Day Trading' else 'B.E.S Price = Avg Price × 1.0112 [another day - full fees]'}
         ```
-        """)
-
-# ==================== TAB 3: Intraday Multi-Trade Calculator ====================
-with tab3:
-    st.title("🔄 Multi-Trade Calculator")
-    st.markdown("Calculate fees for multiple trades - both intraday and multi-day (CSE Rules)")
-    
-    # Trading type selection
-    trading_mode = st.radio(
-        "Select Trading Mode:",
-        options=["Intraday Trading (Same Day)", "Multi-Day Trading (Different Days)"],
-        help="Intraday: Fee exemption on matched quantities. Multi-Day: Full fees on all trades."
-    )
-    
-    if trading_mode == "Intraday Trading (Same Day)":
-        st.info("""
-        **CSE Intraday Trading Rule:**
-        When you buy and sell the same stock on the same day, transaction fees are waived on the **matched quantity** 
-        (except Share Transaction Levy - STL 0.30%). Fees are only charged on the **unmatched quantity**.
-        """)
-    else:
-        st.info("""
-        **Multi-Day Trading:**
-        When you sell stocks on a different day than purchase, full transaction fees (1.12%) apply to **all** 
-        buy and sell transactions.
-        """)
-    
-    # Initialize session state for trades
-    if 'buy_trades' not in st.session_state:
-        st.session_state.buy_trades = []
-    if 'sell_trades' not in st.session_state:
-        st.session_state.sell_trades = []
-    
-    col1, col2 = st.columns(2)
-    
-    # BUY TRADES SECTION
-    with col1:
-        st.subheader("🟢 Buy Trades")
-        
-        with st.form("buy_trade_form"):
-            buy_qty = st.number_input("Quantity", min_value=1, value=100, step=1, key="buy_qty_input")
-            buy_price = st.number_input("Price", min_value=0.01, value=100.0, step=0.01, format="%.2f", key="buy_price_input")
-            add_buy = st.form_submit_button("➕ Add Buy Trade")
-            
-            if add_buy:
-                st.session_state.buy_trades.append({'qty': buy_qty, 'price': buy_price})
-                st.rerun()
-        
-        if st.session_state.buy_trades:
-            st.markdown("**Buy Trades:**")
-            for idx, trade in enumerate(st.session_state.buy_trades):
-                col_a, col_b, col_c = st.columns([2, 2, 1])
-                with col_a:
-                    st.text(f"Qty: {trade['qty']}")
-                with col_b:
-                    st.text(f"Price: Rs. {trade['price']:.2f}")
-                with col_c:
-                    if st.button("🗑️", key=f"del_buy_{idx}"):
-                        st.session_state.buy_trades.pop(idx)
-                        st.rerun()
-            
-            if st.button("🗑️ Clear All Buys"):
-                st.session_state.buy_trades = []
-                st.rerun()
-        else:
-            st.info("No buy trades added yet")
-    
-    # SELL TRADES SECTION
-    with col2:
-        st.subheader("🔴 Sell Trades")
-        
-        with st.form("sell_trade_form"):
-            sell_qty = st.number_input("Quantity", min_value=1, value=100, step=1, key="sell_qty_input")
-            sell_price = st.number_input("Price", min_value=0.01, value=105.0, step=0.01, format="%.2f", key="sell_price_input")
-            add_sell = st.form_submit_button("➕ Add Sell Trade")
-            
-            if add_sell:
-                st.session_state.sell_trades.append({'qty': sell_qty, 'price': sell_price})
-                st.rerun()
-        
-        if st.session_state.sell_trades:
-            st.markdown("**Sell Trades:**")
-            for idx, trade in enumerate(st.session_state.sell_trades):
-                col_a, col_b, col_c = st.columns([2, 2, 1])
-                with col_a:
-                    st.text(f"Qty: {trade['qty']}")
-                with col_b:
-                    st.text(f"Price: Rs. {trade['price']:.2f}")
-                with col_c:
-                    if st.button("🗑️", key=f"del_sell_{idx}"):
-                        st.session_state.sell_trades.pop(idx)
-                        st.rerun()
-            
-            if st.button("🗑️ Clear All Sells"):
-                st.session_state.sell_trades = []
-                st.rerun()
-        else:
-            st.info("No sell trades added yet")
-    
-    st.divider()
-    
-    # CALCULATIONS
-    if st.session_state.buy_trades or st.session_state.sell_trades:
-        st.subheader("📊 Intraday Analysis")
-        
-        # Calculate totals
-        total_buy_qty = sum(trade['qty'] for trade in st.session_state.buy_trades)
-        total_sell_qty = sum(trade['qty'] for trade in st.session_state.sell_trades)
-        
-        # Calculate total buy value and weighted avg buy price
-        total_buy_value = sum(trade['qty'] * trade['price'] for trade in st.session_state.buy_trades)
-        weighted_avg_buy_price = total_buy_value / total_buy_qty if total_buy_qty > 0 else 0
-        
-        # Calculate total sell value and weighted avg sell price
-        total_sell_value = sum(trade['qty'] * trade['price'] for trade in st.session_state.sell_trades)
-        weighted_avg_sell_price = total_sell_value / total_sell_qty if total_sell_qty > 0 else 0
-        
-        # Matched quantity (intraday exemption applies)
-        matched_qty = min(total_buy_qty, total_sell_qty)
-        
-        # Unmatched quantities
-        unmatched_buy_qty = total_buy_qty - matched_qty
-        unmatched_sell_qty = total_sell_qty - matched_qty
-        
-        # Display summary
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Total Buys", f"{total_buy_qty} shares")
-            st.metric("Avg Buy Price", f"Rs. {weighted_avg_buy_price:.2f}")
-            st.metric("Total Buy Value", f"Rs. {total_buy_value:.2f}")
-        
-        with col2:
-            st.metric("Total Sells", f"{total_sell_qty} shares")
-            st.metric("Avg Sell Price", f"Rs. {weighted_avg_sell_price:.2f}")
-            st.metric("Total Sell Value", f"Rs. {total_sell_value:.2f}")
-        
-        with col3:
-            st.metric("Matched Qty (Fee Exempt)", f"{matched_qty} shares", 
-                     help="These shares are exempt from transaction fees (except STL)")
-            st.metric("Unmatched Buys", f"{unmatched_buy_qty} shares")
-            st.metric("Unmatched Sells", f"{unmatched_sell_qty} shares")
-        
-        st.divider()
-        
-        # Fee calculations
-        st.markdown("### 💰 Fee Breakdown")
-        
-        # STL (Share Transaction Levy) - 0.30% - Applied to ALL transactions
-        STL_RATE = 0.30 / 100
-        TRANSACTION_FEE_RATE = (FEE_PERCENTAGE - 0.30) / 100  # 0.82% (1.12% - 0.30% STL)
-        
-        if trading_mode == "Intraday Trading (Same Day)":
-            # INTRADAY MODE: Fee exemption on matched quantity
-            # Buy side fees
-            # Full fee on unmatched buys, only STL on matched buys
-            buy_transaction_fee_unmatched = unmatched_buy_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE
-            buy_stl_all = total_buy_qty * weighted_avg_buy_price * STL_RATE  # STL on all buys
-            total_buy_fees = buy_transaction_fee_unmatched + buy_stl_all
-            
-            # Sell side fees
-            # Full fee on unmatched sells, only STL on matched sells
-            sell_transaction_fee_unmatched = unmatched_sell_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE
-            sell_stl_all = total_sell_qty * weighted_avg_sell_price * STL_RATE  # STL on all sells
-            total_sell_fees = sell_transaction_fee_unmatched + sell_stl_all
-            
-            # Total fees
-            total_fees = total_buy_fees + total_sell_fees
-            
-            # Fee saved calculation
-            fee_saved = (matched_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE) + \
-                       (matched_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE)
-        else:
-            # MULTI-DAY MODE: Full fees on all transactions
-            # Buy side fees - full 1.12% on all buys
-            total_buy_fees = total_buy_value * (FEE_PERCENTAGE / 100)
-            
-            # Sell side fees - full 1.12% on all sells
-            total_sell_fees = total_sell_value * (FEE_PERCENTAGE / 100)
-            
-            # Total fees
-            total_fees = total_buy_fees + total_sell_fees
-            
-            fee_saved = 0  # No savings in multi-day
-        
-        # Calculate costs
-        total_cost_with_fees = total_buy_value + total_buy_fees
-        proceeds_after_fees = total_sell_value - total_sell_fees
-        
-        # Net P&L
-        net_pl = proceeds_after_fees - total_cost_with_fees
-        net_pl_pct = (net_pl / total_cost_with_fees * 100) if total_cost_with_fees > 0 else 0
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Buy Fees", f"Rs. {total_buy_fees:.2f}",
-                     help=f"{'Transaction fee on ' + str(unmatched_buy_qty) + ' unmatched + STL on all ' + str(total_buy_qty) if trading_mode == 'Intraday Trading (Same Day)' else 'Full 1.12% fee on all ' + str(total_buy_qty) + ' shares'}")
-        
-        with col2:
-            st.metric("Sell Fees", f"Rs. {total_sell_fees:.2f}",
-                     help=f"{'Transaction fee on ' + str(unmatched_sell_qty) + ' unmatched + STL on all ' + str(total_sell_qty) if trading_mode == 'Intraday Trading (Same Day)' else 'Full 1.12% fee on all ' + str(total_sell_qty) + ' shares'}")
-        
-        with col3:
-            st.metric("Total Fees", f"Rs. {total_fees:.2f}")
-        
-        with col4:
-            if trading_mode == "Intraday Trading (Same Day)":
-                st.metric("Fees Saved (Intraday)", f"Rs. {fee_saved:.2f}",
-                         help="Transaction fees waived on matched quantity")
-            else:
-                st.metric("Trading Mode", "Multi-Day",
-                         help="Full fees applied on all transactions")
-        
-        st.divider()
-        
-        # P&L Summary
-        st.markdown("### 📈 Profit/Loss Summary")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Total Cost (with fees)", f"Rs. {total_cost_with_fees:.2f}")
-        
-        with col2:
-            st.metric("Proceeds (after fees)", f"Rs. {proceeds_after_fees:.2f}")
-        
-        with col3:
-            if net_pl >= 0:
-                st.metric("Net P&L", f"Rs. {net_pl:.2f}", 
-                         delta=f"+{net_pl_pct:.2f}%")
-            else:
-                st.metric("Net P&L", f"Rs. {net_pl:.2f}", 
-                         delta=f"{net_pl_pct:.2f}%", 
-                         delta_color="inverse")
-        
-        st.divider()
-        
-        # Detailed breakdown
-        with st.expander("🔍 Detailed Fee Calculation"):
-            if trading_mode == "Intraday Trading (Same Day)":
-                st.markdown(f"""
-                **CSE Intraday Fee Structure:**
-                - **Transaction Fee (excluding STL)**: 0.82% (Brokerage + SEC + CSE + CDS)
-                - **Share Transaction Levy (STL)**: 0.30%
-                - **Total Normal Fee**: 1.12%
-                
-                **Your Trades:**
-                - Total Buys: {total_buy_qty} shares @ avg Rs. {weighted_avg_buy_price:.2f}
-                - Total Sells: {total_sell_qty} shares @ avg Rs. {weighted_avg_sell_price:.2f}
-                - **Matched Quantity**: {matched_qty} shares (intraday exemption applies)
-                
-                **Buy Side Fee Calculation:**
-                - Unmatched quantity: {unmatched_buy_qty} shares
-                - Transaction fee on unmatched: Rs. {unmatched_buy_qty * weighted_avg_buy_price:.2f} × 0.82% = Rs. {buy_transaction_fee_unmatched:.2f}
-                - STL on ALL buys: Rs. {total_buy_value:.2f} × 0.30% = Rs. {buy_stl_all:.2f}
-                - **Total Buy Fees: Rs. {total_buy_fees:.2f}**
-                
-                **Sell Side Fee Calculation:**
-                - Unmatched quantity: {unmatched_sell_qty} shares
-                - Transaction fee on unmatched: Rs. {unmatched_sell_qty * weighted_avg_sell_price:.2f} × 0.82% = Rs. {sell_transaction_fee_unmatched:.2f}
-                - STL on ALL sells: Rs. {total_sell_value:.2f} × 0.30% = Rs. {sell_stl_all:.2f}
-                - **Total Sell Fees: Rs. {total_sell_fees:.2f}**
-                
-                **Matched Quantity Benefit:**
-                - On {matched_qty} matched shares, you save the 0.82% transaction fee
-                - You still pay STL (0.30%) on matched shares
-                - Total fee saved: Rs. {fee_saved:.2f}
-                
-                **Final P&L:**
-                - Total Cost: Rs. {total_buy_value:.2f} + Rs. {total_buy_fees:.2f} = Rs. {total_cost_with_fees:.2f}
-                - Proceeds: Rs. {total_sell_value:.2f} - Rs. {total_sell_fees:.2f} = Rs. {proceeds_after_fees:.2f}
-                - **Net P&L: Rs. {net_pl:.2f} ({net_pl_pct:.2f}%)**
-                """)
-            else:
-                st.markdown(f"""
-                **Multi-Day Fee Structure:**
-                - **Full Transaction Fee**: 1.12% on ALL transactions
-                - No intraday exemption applies
-                
-                **Your Trades:**
-                - Total Buys: {total_buy_qty} shares @ avg Rs. {weighted_avg_buy_price:.2f}
-                - Total Sells: {total_sell_qty} shares @ avg Rs. {weighted_avg_sell_price:.2f}
-                
-                **Buy Side Fee Calculation:**
-                - All buy quantity: {total_buy_qty} shares
-                - Full fee on all buys: Rs. {total_buy_value:.2f} × 1.12% = Rs. {total_buy_fees:.2f}
-                - **Total Buy Fees: Rs. {total_buy_fees:.2f}**
-                
-                **Sell Side Fee Calculation:**
-                - All sell quantity: {total_sell_qty} shares
-                - Full fee on all sells: Rs. {total_sell_value:.2f} × 1.12% = Rs. {total_sell_fees:.2f}
-                - **Total Sell Fees: Rs. {total_sell_fees:.2f}**
-                
-                **Final P&L:**
-                - Total Cost: Rs. {total_buy_value:.2f} + Rs. {total_buy_fees:.2f} = Rs. {total_cost_with_fees:.2f}
-                - Proceeds: Rs. {total_sell_value:.2f} - Rs. {total_sell_fees:.2f} = Rs. {proceeds_after_fees:.2f}
-                - **Net P&L: Rs. {net_pl:.2f} ({net_pl_pct:.2f}%)**
-                """)
-        
-        # Example comparison
-        with st.expander("💡 Fee Comparison: Intraday vs Multi-Day"):
-            # Calculate what fees would be for both scenarios
-            full_buy_fees = total_buy_value * (FEE_PERCENTAGE / 100)
-            full_sell_fees = total_sell_value * (FEE_PERCENTAGE / 100)
-            multiday_total_fees = full_buy_fees + full_sell_fees
-            
-            if trading_mode == "Intraday Trading (Same Day)":
-                savings = multiday_total_fees - total_fees
-                st.markdown(f"""
-                **If these were Multi-Day trades (no exemption):**
-                - Buy fees: Rs. {total_buy_value:.2f} × 1.12% = Rs. {full_buy_fees:.2f}
-                - Sell fees: Rs. {total_sell_value:.2f} × 1.12% = Rs. {full_sell_fees:.2f}
-                - Total fees: Rs. {multiday_total_fees:.2f}
-                
-                **Your Intraday fees:**
-                - Total fees: Rs. {total_fees:.2f}
-                
-                **💰 You saved: Rs. {savings:.2f}** by doing intraday trading!
-                """)
-            else:
-                st.markdown(f"""
-                **Your Multi-Day fees:**
-                - Buy fees: Rs. {full_buy_fees:.2f}
-                - Sell fees: Rs. {full_sell_fees:.2f}
-                - Total fees: Rs. {multiday_total_fees:.2f}
-                
-                **If these were Intraday trades (with {matched_qty} matched shares):**
-                - Estimated savings: Rs. {fee_saved if fee_saved > 0 else (matched_qty * weighted_avg_buy_price * TRANSACTION_FEE_RATE + matched_qty * weighted_avg_sell_price * TRANSACTION_FEE_RATE):.2f}
-                
-                💡 **Tip:** If you can complete these trades in a single day, you could save on transaction fees!
-                """)
-    
-    else:
-        st.info("👆 Add buy and sell trades to see the analysis")
-        
-        st.markdown("""
-        **How to use this calculator:**
-        1. **Select trading mode**: Intraday (same day) or Multi-Day (different days)
-        2. Add all your BUY trades (quantity and price for each)
-        3. Add all your SELL trades (quantity and price for each)
-        4. The calculator will:
-           - Calculate weighted average prices
-           - Match buy and sell quantities (for intraday mode)
-           - Apply appropriate CSE fee rules
-           - Show your total P&L with fee breakdown
-        
-        **Intraday Mode:**
-        - Fee exemption (0.82%) on matched quantities
-        - STL (0.30%) still applies to all shares
-        - **Example**: Buy 5,000, Sell 4,000 → Fee exemption on 4,000 shares
-        
-        **Multi-Day Mode:**
-        - Full 1.12% fee on ALL buy and sell transactions
-        - No exemptions apply
-        - Use this when holding stocks overnight or longer
         """)
