@@ -9,7 +9,7 @@ st.set_page_config(page_title="CalqTrade", page_icon="🪙", layout="wide")
 FEE_PERCENTAGE = 1.12
 
 # Create tabs
-tab1, tab2 = st.tabs(["💹 Single Trade Calculator", "⚖️ Break-Even Calculator"])
+tab1, tab2, tab3 = st.tabs(["💹 Single Trade Calculator", "⚖️ Break-Even Calculator", "new tab"])
 
 # ==================== TAB 1: Original Calculator ====================
 with tab1:
@@ -436,4 +436,143 @@ with tab2:
         Total Cost = Avg Price × Qty
         {'B.E.S Price = Total Cost ÷ (Qty × 0.997) [same day - includes STL]' if be_same_day == 'Same Day Trading' else 'B.E.S Price = Avg Price × 1.0112 [another day - full fees]'}
         ```
+        """)
+
+# ==================== TAB 3: Multi-Leg Averaging + Break-Even ====================
+with st.tabs(["Single Trade Calculator", "Break-Even Calculator", "Multi-Buy Averaging"])[2]:
+    st.title("CalqTrade")
+    st.markdown("### Multi-Leg Purchase Averaging & True Break-Even Price")
+    st.markdown("Add multiple buy transactions of the **same stock** to calculate your real average cost and exact break-even sell price.")
+
+    st.info("""
+    **Ideal for:**
+    - Averaging down/up
+    - Building position in parts
+    - SIP-style buying
+    """)
+
+    # Initialize session state for storing buys
+    if 'buys' not in st.session_state:
+        st.session_state.buys = []
+
+    st.subheader("Add Buy Transactions")
+
+    col1, col2, col3 = st.columns([2, 2, 1])
+    with col1:
+        new_price = st.number_input("Buy Price (₹)", min_value=0.01, value=100.0, step=0.5, key="new_price")
+    with col2:
+        new_qty = st.number_input("Quantity", min_value=1, value=100, step=1, key="new_qty")
+    with col3:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Add Buy", type="primary", use_container_width=True):
+            st.session_state.buys.append({"price": new_price, "quantity": int(new_qty)})
+            st.success(f"Added: {new_qty} shares @ ₹{new_price:.2f}")
+            st.rerun()
+
+    # Show current buys
+    if st.session_state.buys:
+        df_buys = pd.DataFrame(st.session_state.buys)
+        df_buys.index = [f"Buy #{i+1}" for i in range(len(df_buys))]
+        df_buys = df_buys[['price', 'quantity']]
+        df_buys.columns = ["Buy Price (₹)", "Quantity"]
+
+        # Add total value column
+        df_buys["Total Cost"] = df_buys["Buy Price (₹)"] * df_buys["Quantity"]
+        st.dataframe(df_buys.style.format({
+            "Buy Price (₹)": "₹{:.2f}",
+            "Total Cost": "₹{:.2f}"
+        }), use_container_width=True)
+
+        # Option to clear all
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("Clear All Buys", type="secondary"):
+                st.session_state.buys = []
+                st.rerun()
+
+        st.divider()
+
+        # === CALCULATIONS ===
+        if st.session_state.buys:
+            total_shares = sum(item['quantity'] for item in st.session_state.buys)
+            total_investment = sum(item['price'] * item['quantity'] for item in st.session_state.buys)
+            total_buy_fee = total_investment * (FEE_PERCENTAGE / 100)
+            total_cost_with_fee = total_investment + total_buy_fee
+
+            # True Average Price (including buy fees)
+            true_avg_price = total_cost_with_fee / total_shares
+
+            # Trading type selection
+            trading_type = st.radio(
+                "When will you sell?",
+                options=["Same Day Trading (Intraday)", "Sell on Another Day (Delivery)"],
+                help="Affects sell-side fees for break-even calculation",
+                key="multi_trading_type"
+            )
+
+            STL_RATE = 0.003  # 0.30%
+
+            if trading_type == "Same Day Trading (Intraday)":
+                # Sell fee = only STL 0.30%
+                bes_price = total_cost_with_fee / (total_shares * (1 - STL_RATE))
+                sell_fee_at_bes = bes_price * total_shares * STL_RATE
+            else:
+                # Full 1.12% on sell
+                bes_price = true_avg_price * (1 + FEE_PERCENTAGE / 100)
+                sell_fee_at_bes = bes_price * total_shares * (FEE_PERCENTAGE / 100)
+
+            price_move_needed = bes_price - (total_investment / total_shares)  # from raw avg
+            pct_move_from_raw = (bes_price / (total_investment / total_shares) - 1) * 100
+            pct_move_from_buy = (bes_price - true_avg_price) / true_avg_price * 100
+
+            st.subheader("Final Results")
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Shares", f"{total_shares:,}")
+                st.metric("Raw Average (w/o fee)", f"₹{total_investment/total_shares:.4f}")
+            with col2:
+                st.metric("True Avg Price (with 1.12% fee)", f"₹{true_avg_price:.4f}",
+                         delta=f"+₹{true_avg_price - (total_investment/total_shares):.4f}")
+            with col3:
+                st.metric("Break-Even Sell Price", f"₹{bes_price:.4f}",
+                         delta=f"+{pct_move_from_raw:.2f}% from raw avg")
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Investment", f"₹{total_investment:,.2f}")
+            with col2:
+                st.metric("Total Buy Fees Paid", f"₹{total_buy_fee:,.2f}")
+            with col3:
+                st.metric("Total Cost (Capital + Fees)", f"₹{total_cost_with_fee:,.2f}")
+
+            st.divider()
+
+            st.markdown("### Break-Even Details")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Required Price Increase from Raw Avg", f"+₹{price_move_needed:.4f}")
+                st.metric("Required % Move to Break Even", f"{pct_move_from_raw:.2f}%")
+            with col2:
+                st.metric("Sell Fee at Break-Even", f"₹{sell_fee_at_bes:.2f}")
+                fee_desc = "STL only (0.30%)" if trading_type.startswith("Same Day") else "Full 1.12%"
+                st.caption(f"Sell fee type: {fee_desc}")
+
+            # Quick example highlight
+            st.success(f"""
+            **Summary:**
+            - You bought **{total_shares:,} shares** across multiple prices
+            - Your **true cost per share** (after fees) = **₹{true_avg_price:.4f}**
+            - To break even, you need to sell at **₹{bes_price:.4f}**
+            - That’s a **{pct_move_from_raw:.2f}% rise** from your weighted buy price (excluding fees)
+            """)
+
+    else:
+        st.warning("Add at least one buy transaction to see results.")
+        st.markdown("""
+        **Example:**
+        - Buy 1000 shares @ ₹100 → Add
+        - Buy 1000 shares @ ₹102 → Add  
+        - Buy 1000 shares @ ₹104 → Add  
+        → See your real average and break-even in seconds!
         """)
