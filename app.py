@@ -10,7 +10,7 @@ st.set_page_config(page_title="CalqTrade", page_icon="🪙", layout="wide")
 FEE_PERCENTAGE = 1.12
 
 # Create tabs
-tab1, tab2 = st.tabs(["💹 Single Trade", "⚖️ Break-Even", "📊 Multi Purchase"])
+tab1, tab2, tab3 = st.tabs(["💹 Single Trade", "⚖️ Break-Even", "📊 Multi Purchase"])
 
 # ==================== TAB 1: Original Calculator ====================
 with tab1:
